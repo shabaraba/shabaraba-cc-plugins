@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "shabaraba-plugins",
+  "name": "shabaraba-cc-plugins",
   "version": "1.0.0",
   "description": "AI-driven development workflow plugins for Claude Code",
   "owner": {
