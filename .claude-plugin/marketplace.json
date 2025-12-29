@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-code-plugins",
+  "version": "1.0.0",
+  "description": "AI-driven development workflow plugins for Claude Code",
+  "owner": {
+    "name": "shabaraba",
+    "email": ""
+  },
+  "plugins": [
+    {
+      "name": "dev-org",
+      "description": "Comprehensive development organization plugin with AI-driven refactoring workflows. Features parallel analysis (SOLID, complexity, smells, security, duplication), architecture design, implementation, QA, testing, and multi-perspective code review.",
+      "version": "0.1.0",
+      "author": {
+        "name": "shabaraba",
+        "email": ""
+      },
+      "source": "./packages/dev-org",
+      "category": "development"
+    }
+  ]
+}
