@@ -15,118 +15,112 @@ Execute a comprehensive refactoring workflow for the specified target.
 - **--analysis-only**: Stop after analysis and design proposal (no implementation)
 - **--pr NUMBER**: Analyze and refactor based on PR changes
 
+## Critical Rules
+
+### 1. Always Verify Subagent Output
+After every subagent completes, YOU (orchestrator) must verify:
+- Files claimed to be created → `Glob` to confirm existence
+- Files claimed to be modified → `Read` to confirm changes
+- Tests claimed to pass → `Bash` to run tests yourself
+
+### 2. Feedback Loops Are Mandatory
+```
+Test Failed? → Back to Implementation (max 3 times)
+Review Issues? → Back to Implementation (max 3 times)
+Still Failing? → Stop and ask user
+```
+
+### 3. Maximum Retry Limits
+- Implementation retry: 3 times per module
+- Test fix retry: 3 times total
+- Review fix retry: 3 times total
+- After max retries: STOP and report to user
+
 ## Workflow Phases
 
-### Phase 1: Preparation
-1. Parse arguments to determine scope (project, path, or PR)
+```
+┌─────────────┐
+│ Preparation │
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│  Analysis   │ (5 analyzers in parallel)
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│   Design    │ → USER APPROVAL REQUIRED
+└──────┬──────┘
+       ▼
+┌─────────────┐     ┌──────────────────┐
+│Implementation│◄───│ Feedback Loop    │
+└──────┬──────┘     │ (max 3 retries)  │
+       ▼            └────────▲─────────┘
+┌─────────────┐              │
+│  QA & Test  │──── FAIL ────┘
+└──────┬──────┘
+       │ PASS
+       ▼
+┌─────────────┐     ┌──────────────────┐
+│   Review    │────►│ Fix Issues       │
+└──────┬──────┘     └────────┬─────────┘
+       │                     │
+       │◄────────────────────┘
+       ▼
+┌─────────────┐
+│ Completion  │
+└─────────────┘
+```
+
+---
+
+## Phase 1: Preparation
+
+**Actions**:
+1. Parse arguments to determine scope
 2. Create Git branch: `refactor/YYYYMMDD-{scope}`
-3. Initialize progress tracking with TodoWrite
+3. Initialize TodoWrite with all phases
 
-### Phase 2: Analysis (Parallel)
-Launch 5 analyzer agents in parallel using Task tool:
-- `code-analyzer-solid` - SOLID principle violations
-- `code-analyzer-complexity` - Complexity metrics
-- `code-analyzer-smells` - Code smell detection
-- `code-analyzer-security` - Security vulnerabilities
-- `code-analyzer-duplication` - Duplicate code detection
-
-Wait for all analyzers to complete and aggregate results.
-
-### Phase 3: Design
-Launch `architecture-designer` agent to:
-- Synthesize analysis findings
-- Propose refactoring architecture
-- Create implementation plan
-- Identify risks and dependencies
-
-**USER APPROVAL REQUIRED**: Present design to user and wait for approval.
-
-If `--analysis-only` flag: Stop here and report findings.
-
-### Phase 4: Implementation
-After user approval, launch `implementation-agent` to:
-- Implement changes module by module
-- Run lint/format after each module
-- Retry up to 3 times on errors
-- Report progress via TodoWrite
-
-### Phase 5: QA & Test Design
-Launch `qa-agent` to:
-- Analyze impact scope
-- Design test strategy
-- Create test specifications
-
-### Phase 6: Test Implementation
-Launch `test-implementer` to:
-- Implement unit tests
-- Implement integration tests
-- Implement E2E tests (if needed)
-- Fix broken existing tests
-- Verify all tests pass
-
-### Phase 7: Review (Parallel)
-Launch 4 reviewer agents in parallel:
-- `code-reviewer-security` - Security review
-- `code-reviewer-performance` - Performance review
-- `code-reviewer-maintainability` - Maintainability review
-- `code-reviewer-testability` - Testability review
-
-Aggregate review findings. Auto-fix simple issues, propose fixes for complex ones.
-
-### Phase 8: Completion
-- Run final test suite
-- Generate summary report
-- Present results to user
-
-## Execution Instructions
-
-### Step 1: Parse Arguments
-```
-if args contains "--pr":
-  scope = "PR #{number}"
-  target = get PR changed files
-elif args contains path:
-  scope = path
-  target = specified path
-else:
-  scope = "project"
-  target = entire project
-```
-
-### Step 2: Git Branch
 ```bash
 git checkout -b refactor/$(date +%Y%m%d)-{scope_slug}
 ```
 
-### Step 3: Initialize Tracking
-Use TodoWrite to create:
+**TodoWrite initialization**:
+```
 - [ ] Analysis Phase
 - [ ] Design Phase
 - [ ] User Approval
 - [ ] Implementation Phase
-- [ ] QA Phase
-- [ ] Test Implementation
+- [ ] QA & Test Phase
 - [ ] Review Phase
 - [ ] Completion
-
-### Step 4: Run Analyzers (Parallel)
-Use Task tool to launch all 5 analyzers simultaneously:
-```
-Task(subagent_type="code-analyzer-solid", prompt="Analyze {target} for SOLID violations")
-Task(subagent_type="code-analyzer-complexity", prompt="Analyze {target} complexity")
-Task(subagent_type="code-analyzer-smells", prompt="Detect code smells in {target}")
-Task(subagent_type="code-analyzer-security", prompt="Scan {target} for security issues")
-Task(subagent_type="code-analyzer-duplication", prompt="Find duplicates in {target}")
 ```
 
-### Step 5: Design Phase
-Launch architecture-designer with analysis results:
+---
+
+## Phase 2: Analysis (Parallel)
+
+Launch 5 analyzer agents in parallel:
+
+```
+Task(subagent_type="code-analyzer-solid", prompt="...")
+Task(subagent_type="code-analyzer-complexity", prompt="...")
+Task(subagent_type="code-analyzer-smells", prompt="...")
+Task(subagent_type="code-analyzer-security", prompt="...")
+Task(subagent_type="code-analyzer-duplication", prompt="...")
+```
+
+**After all complete**: Aggregate results into unified analysis report.
+
+---
+
+## Phase 3: Design
+
+Launch `architecture-designer` agent:
 ```
 Task(subagent_type="architecture-designer", prompt="Design refactoring based on: {analysis_results}")
 ```
 
-### Step 6: User Approval
-Present design and ask:
+**USER APPROVAL REQUIRED**:
 ```
 AskUserQuestion(
   question="Proceed with this refactoring plan?",
@@ -138,62 +132,261 @@ AskUserQuestion(
 )
 ```
 
-If `--analysis-only`: Skip to completion with analysis report.
+If `--analysis-only` or user cancels: Generate report and stop.
 
-### Step 7: Implementation
+---
+
+## Phase 4: Implementation
+
+### 4.1 Execute Implementation
+
+Launch `implementation-agent`:
 ```
 Task(subagent_type="implementation-agent", prompt="Implement: {approved_design}")
 ```
 
-### Step 8: QA
+### 4.2 Verify Output (MANDATORY)
+
+**YOU must verify after subagent completes:**
+
+```python
+# For each file claimed as created:
+for file in claimed_created_files:
+    result = Glob(pattern=file)
+    if not result:
+        VERIFICATION_FAILED = True
+
+# For each file claimed as modified:
+for file in claimed_modified_files:
+    content = Read(file)
+    if expected_changes not in content:
+        VERIFICATION_FAILED = True
+```
+
+**If verification fails**:
+1. Log which files are missing/incorrect
+2. Re-launch implementation-agent with specific instructions
+3. Max 3 retries, then stop and report to user
+
+### 4.3 Run Lint/Format
+
+```bash
+# Detect and run appropriate tools
+npm run lint 2>/dev/null || npx eslint . --fix
+npm run format 2>/dev/null || npx prettier --write .
+```
+
+---
+
+## Phase 5: QA & Test
+
+### 5.1 QA Analysis
+
+Launch `qa-agent`:
 ```
 Task(subagent_type="qa-agent", prompt="Analyze impact and design tests for changes")
 ```
 
-### Step 9: Test Implementation
+### 5.2 Test Implementation
+
+Launch `test-implementer`:
 ```
 Task(subagent_type="test-implementer", prompt="Implement tests: {test_design}")
 ```
 
-### Step 10: Review (Parallel)
-```
-Task(subagent_type="code-reviewer-security", prompt="Security review of changes")
-Task(subagent_type="code-reviewer-performance", prompt="Performance review of changes")
-Task(subagent_type="code-reviewer-maintainability", prompt="Maintainability review")
-Task(subagent_type="code-reviewer-testability", prompt="Testability review")
+### 5.3 Run Tests (MANDATORY)
+
+**YOU must run tests yourself:**
+```bash
+npm test || pytest || go test ./... || mvn test
 ```
 
-### Step 11: Final Report
-Generate comprehensive summary:
-- Changes made
-- Issues found and fixed
-- Test coverage
-- Recommendations
+### 5.4 Handle Test Results
+
+```
+IF all tests pass:
+    → Proceed to Phase 6 (Review)
+
+IF tests fail:
+    → Increment retry_count
+    → IF retry_count > 3:
+        → STOP and report to user:
+          "Tests failed 3 times. Issues: {failures}"
+          "Options: 1) Fix manually 2) Skip tests 3) Abort"
+    → ELSE:
+        → Go back to Phase 4.1 with prompt:
+          "Fix test failures: {failure_details}"
+```
+
+---
+
+## Phase 6: Review
+
+### 6.1 Execute Reviews (Parallel)
+
+Launch 4 reviewer agents:
+```
+Task(subagent_type="code-reviewer-security", prompt="...")
+Task(subagent_type="code-reviewer-performance", prompt="...")
+Task(subagent_type="code-reviewer-maintainability", prompt="...")
+Task(subagent_type="code-reviewer-testability", prompt="...")
+```
+
+### 6.2 Aggregate Findings
+
+Categorize issues:
+- **Critical**: Must fix before completion
+- **Major**: Should fix, ask user
+- **Minor**: Can fix automatically or defer
+
+### 6.3 Handle Review Issues
+
+```
+IF no critical/major issues:
+    → Proceed to Phase 7 (Completion)
+
+IF critical issues found:
+    → Increment review_retry_count
+    → IF review_retry_count > 3:
+        → STOP and report to user:
+          "Critical issues not resolved after 3 attempts"
+          "Issues: {critical_issues}"
+    → ELSE:
+        → Go back to Phase 4.1 with prompt:
+          "Fix critical review issues: {issue_details}"
+
+IF only major issues:
+    → AskUserQuestion:
+        "Review found these issues: {issues}"
+        Options:
+        - "Fix now" → Back to Phase 4.1
+        - "Fix later" → Record as tech debt, continue
+        - "Ignore" → Continue without fixing
+```
+
+### 6.4 Auto-fix Minor Issues
+
+For minor issues (formatting, naming, etc.):
+1. Apply fixes directly using Edit tool
+2. Re-run lint/format
+3. Verify fixes applied
+
+---
+
+## Phase 7: Completion
+
+### 7.1 Final Verification
+
+**Run full test suite:**
+```bash
+npm test || pytest || go test ./... || mvn test
+```
+
+**Verify all claimed files exist:**
+```python
+for file in all_created_files:
+    assert Glob(file) is not empty
+```
+
+### 7.2 Generate Summary Report
+
+```markdown
+## Refactoring Summary
+
+### Changes Made
+- Files created: {count} (all verified)
+- Files modified: {count} (all verified)
+- Files deleted: {count}
+
+### Analysis Findings Addressed
+- SOLID violations fixed: {count}
+- Code smells removed: {count}
+- Duplications eliminated: {count}
+
+### Test Results
+- Total tests: {count}
+- Passing: {count}
+- Coverage: {percentage}%
+
+### Review Results
+- Critical issues: 0 (all resolved)
+- Major issues: {count} ({resolved} fixed, {deferred} deferred)
+- Minor issues: {count} (auto-fixed)
+
+### Iterations Required
+- Implementation retries: {count}
+- Test fix retries: {count}
+- Review fix retries: {count}
+```
+
+### 7.3 Present to User
+
+Show summary and ask:
+```
+AskUserQuestion(
+  question="Refactoring complete. What next?",
+  options=[
+    {label: "Merge", description: "Merge branch to main/develop"},
+    {label: "Create PR", description: "Create pull request for review"},
+    {label: "Keep branch", description: "Leave changes in branch"}
+  ]
+)
+```
+
+---
+
+## State Tracking
+
+Maintain these variables throughout:
+
+```yaml
+state:
+  current_phase: "implementation"
+  implementation_retry_count: 0
+  test_retry_count: 0
+  review_retry_count: 0
+  max_retries: 3
+
+  created_files: []
+  modified_files: []
+  deleted_files: []
+
+  test_results:
+    passed: 0
+    failed: 0
+    failures: []
+
+  review_issues:
+    critical: []
+    major: []
+    minor: []
+```
+
+---
+
+## Error Handling
+
+| Situation | Action |
+|-----------|--------|
+| Analyzer fails | Continue with others, note partial results |
+| Implementation fails (< 3 retries) | Retry with error details |
+| Implementation fails (>= 3 retries) | Stop, report to user |
+| Tests fail (< 3 retries) | Back to implementation |
+| Tests fail (>= 3 retries) | Stop, ask user what to do |
+| Critical review issue (< 3 retries) | Back to implementation |
+| Critical review issue (>= 3 retries) | Stop, report to user |
+| Verification fails | Retry subagent or fix manually |
+
+---
 
 ## Skills to Load
 
-Load these skills for detailed guidance:
 - `solid-principles` - SOLID violation patterns
 - `refactoring-patterns` - Refactoring techniques
 - `code-quality-metrics` - Complexity thresholds
 - `language-best-practices` - Language-specific patterns
 
-## Error Handling
-
-- On analyzer failure: Continue with other analyzers, report partial results
-- On implementation error: Retry 3 times, then report to user
-- On test failure: Report failures, allow user to decide next steps
-- On review issues: Auto-fix simple issues, propose fixes for complex ones
-
-## Output
-
-Final report includes:
-1. Executive Summary
-2. Analysis Findings
-3. Changes Implemented
-4. Test Coverage Report
-5. Review Results
-6. Recommendations
+---
 
 ## Example Usage
 
