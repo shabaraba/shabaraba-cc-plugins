@@ -1,0 +1,20 @@
+{
+  "name": "claude-code-plugins",
+  "version": "1.0.0",
+  "description": "Monorepo for Claude Code plugins",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "claude-code",
+    "plugins",
+    "ai",
+    "development-tools"
+  ],
+  "author": "shaba",
+  "license": "MIT"
+}

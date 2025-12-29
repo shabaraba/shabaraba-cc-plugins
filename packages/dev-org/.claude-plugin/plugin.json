@@ -1,0 +1,18 @@
+{
+  "name": "dev-org",
+  "version": "0.1.0",
+  "description": "Comprehensive development organization plugin with AI-driven refactoring, implementation, and investigation workflows",
+  "author": {
+    "name": "shaba",
+    "email": ""
+  },
+  "keywords": [
+    "refactoring",
+    "code-quality",
+    "solid-principles",
+    "development-workflow",
+    "code-review",
+    "testing"
+  ],
+  "license": "MIT"
+}
