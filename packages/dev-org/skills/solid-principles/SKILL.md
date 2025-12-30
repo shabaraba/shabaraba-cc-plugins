@@ -158,4 +158,3 @@ For detailed patterns and language-specific examples:
 Combine with:
 - `code-quality-metrics` for complexity analysis
 - `refactoring-patterns` for specific refactoring techniques
-- `language-best-practices` for language-specific idioms

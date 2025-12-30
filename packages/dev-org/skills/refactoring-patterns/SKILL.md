@@ -186,4 +186,3 @@ For comprehensive pattern catalog and detection scripts:
 Combine with:
 - `solid-principles` for design principle guidance
 - `code-quality-metrics` for quantitative analysis
-- `language-best-practices` for language-specific patterns

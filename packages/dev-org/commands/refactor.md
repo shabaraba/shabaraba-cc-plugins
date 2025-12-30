@@ -632,7 +632,6 @@ state:
 - `solid-principles` - SOLID violation patterns
 - `refactoring-patterns` - Refactoring techniques
 - `code-quality-metrics` - Complexity thresholds
-- `language-best-practices` - Language-specific patterns
 
 ---
 

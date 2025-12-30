@@ -1,47 +1,21 @@
-# dev-org - Development Organization Plugin
+# dev-org - Refactoring Specialized Plugin
 
-Comprehensive development organization plugin for Claude Code featuring AI-driven refactoring, implementation, and code analysis workflows.
+Refactoring-specialized plugin for Claude Code with regression prevention, architecture compliance checks, and feedback loops.
 
-## Features
+**For new feature development, use [compounding-engineering](https://github.com/EveryInc/compound-engineering-plugin) instead.**
 
-### `/refactor` Command
+## Why This Plugin?
 
-Comprehensive refactoring workflow with parallel AI agents:
+Unlike general-purpose development plugins, dev-org focuses exclusively on **safe refactoring**:
 
-1. **Analysis Phase**: Multiple specialized analyzers examine code
-   - SOLID principles violations
-   - Cyclomatic & cognitive complexity
-   - Code smells detection
-   - Security vulnerabilities
-   - Code duplication
+| Feature | dev-org | Others |
+|---------|---------|--------|
+| Regression Prevention | White-box + Black-box checks | Limited |
+| Architecture Compliance | Automated layer dependency checks | Manual |
+| Feedback Loops | Auto-retry on failure (max 3) | Stop on error |
+| SOLID Analysis | 5 specialized analyzers | Generic |
 
-2. **Design Phase**: Architecture designer proposes refactoring plan
-   - Module breakdown suggestions
-   - SOLID compliance improvements
-   - Readability enhancements
-
-3. **Implementation Phase**: Automated refactoring execution
-   - Module-by-module implementation
-   - Automatic lint/format application
-   - 3-retry error handling
-
-4. **QA Phase**: Impact analysis and test design
-   - Affected scope identification
-   - Test strategy creation
-
-5. **Test Implementation**: Automated test generation
-   - Unit tests
-   - Integration tests
-   - E2E tests (as needed)
-   - Auto-fix broken existing tests
-
-6. **Review Phase**: Multi-perspective code review
-   - Security review
-   - Performance review
-   - Maintainability review
-   - Testability review
-
-## Usage
+## `/refactor` Command
 
 ```bash
 # Refactor entire project
@@ -50,70 +24,122 @@ Comprehensive refactoring workflow with parallel AI agents:
 # Refactor specific path
 /refactor src/components
 
-# Refactor single file
-/refactor src/utils/helper.ts
-
-# Analyze PR
-/refactor --pr 123
-
 # Analysis only (no implementation)
 /refactor --analysis-only
+
+# Refactor based on PR
+/refactor --pr 123
 ```
 
-## Supported Languages
+## Workflow
 
-- TypeScript
-- JavaScript
-- Java
-- PHP
-- Lua
-- Go
-- Python
-
-## Installation
-
-```bash
-# Install from local directory
-cc --plugin-dir /path/to/claude-code-plugins/packages/dev-org
-
-# Or copy to project .claude-plugin directory
-cp -r packages/dev-org /path/to/your/project/.claude-plugin/
 ```
+┌─────────────┐
+│  Analysis   │ ← 5 parallel analyzers (SOLID, complexity, smells, security, duplication)
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│   Design    │ ← Architecture rules defined here
+└──────┬──────┘
+       ▼
+┌─────────────────────────────────────┐
+│          FEEDBACK LOOP              │
+│  ┌─────────────┐                    │
+│  │Implementation│                    │
+│  └──────┬──────┘                    │
+│         ▼                           │
+│  ┌─────────────┐                    │
+│  │ White-box   │ ← Dangling refs?   │
+│  │ Regression  │   API changed?     │
+│  └──────┬──────┘                    │
+│         ▼                           │
+│  ┌─────────────┐                    │
+│  │Architecture │ ← Layer violation? │
+│  │ Compliance  │                    │
+│  └──────┬──────┘                    │
+│         ▼                           │
+│  ┌─────────────┐                    │
+│  │ Black-box   │ ← Behavior changed?│
+│  │ Regression  │                    │
+│  └─────────────┘                    │
+│    ↑ Retry up to 3 times on failure │
+└─────────────────────────────────────┘
+       ▼
+┌─────────────┐
+│   Review    │ ← Security, Performance, Maintainability, Testability
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│ Completion  │
+└─────────────┘
+```
+
+## Key Features
+
+### 1. Regression Prevention
+
+**White-box (Code Level)**:
+- No dangling references to deleted symbols
+- Public APIs preserved (same signatures)
+- Same external dependencies called
+
+**Black-box (Behavior Level)**:
+- All existing tests pass
+- Same inputs → same outputs
+- Error handling unchanged
+
+### 2. Architecture Compliance
+
+Automatically checks layer dependencies:
+
+| Architecture | Forbidden |
+|--------------|-----------|
+| Clean Architecture | Application → Presentation |
+| Clean Architecture | Domain → Infrastructure |
+| Hexagonal | Core → Adapter |
+
+### 3. Feedback Loops
+
+On any failure:
+1. Auto-retry with specific fix instructions
+2. Max 3 retries per check type
+3. If still failing → Stop and report to user
 
 ## Components
 
 ### Agents (13)
 
 **Analyzers (5)**:
-- `code-analyzer-solid`: SOLID principles checker
-- `code-analyzer-complexity`: Complexity metrics analyzer
-- `code-analyzer-smells`: Code smell detector
-- `code-analyzer-security`: Security vulnerability scanner
-- `code-analyzer-duplication`: Duplicate code finder
+- `code-analyzer-solid`
+- `code-analyzer-complexity`
+- `code-analyzer-smells`
+- `code-analyzer-security`
+- `code-analyzer-duplication`
 
-**Workflow Agents (4)**:
-- `architecture-designer`: Refactoring architecture designer
-- `implementation-agent`: Code implementation executor
-- `qa-agent`: QA and test strategy planner
-- `test-implementer`: Test code generator
+**Workflow (4)**:
+- `architecture-designer`
+- `implementation-agent`
+- `qa-agent`
+- `test-implementer`
 
 **Reviewers (4)**:
-- `code-reviewer-security`: Security-focused reviewer
-- `code-reviewer-performance`: Performance-focused reviewer
-- `code-reviewer-maintainability`: Maintainability-focused reviewer
-- `code-reviewer-testability`: Testability-focused reviewer
+- `code-reviewer-security`
+- `code-reviewer-performance`
+- `code-reviewer-maintainability`
+- `code-reviewer-testability`
 
-### Skills (4)
+### Skills (3)
 
-- `solid-principles`: Detailed SOLID principles guide
-- `refactoring-patterns`: Refactoring pattern catalog
-- `code-quality-metrics`: Complexity metrics and thresholds
-- `language-best-practices`: Language-specific best practices (TS/JS/Java/PHP/Lua/Go/Python)
+- `solid-principles`: SOLID violation patterns and fixes
+- `refactoring-patterns`: Fowler's refactoring catalog
+- `code-quality-metrics`: Complexity thresholds
 
-## Future Commands
+## Installation
 
-- `/implement`: AI-driven feature implementation
-- `/investigate`: Deep code investigation and analysis
+```bash
+/plugin marketplace add shabaraba/shabaraba-cc-plugins
+/plugin install dev-org
+```
 
 ## License
 

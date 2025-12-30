@@ -1,7 +1,7 @@
 {
   "name": "dev-org",
-  "version": "0.1.0",
-  "description": "Comprehensive development organization plugin with AI-driven refactoring, implementation, and investigation workflows",
+  "version": "0.2.0",
+  "description": "Refactoring-specialized plugin with regression prevention, architecture compliance checks, and feedback loops",
   "author": {
     "name": "shaba",
     "email": ""
@@ -10,9 +10,9 @@
     "refactoring",
     "code-quality",
     "solid-principles",
-    "development-workflow",
-    "code-review",
-    "testing"
+    "regression-prevention",
+    "architecture-compliance",
+    "code-analysis"
   ],
   "license": "MIT"
 }
