@@ -1,0 +1,17 @@
+{
+  "name": "parallel-worktree",
+  "version": "0.1.0",
+  "description": "Async parallel development with git worktrees and background agents",
+  "author": {
+    "name": "shaba",
+    "email": ""
+  },
+  "keywords": [
+    "parallel",
+    "worktree",
+    "async",
+    "background-agent",
+    "multi-task"
+  ],
+  "license": "MIT"
+}
