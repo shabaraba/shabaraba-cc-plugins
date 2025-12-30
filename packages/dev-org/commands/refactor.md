@@ -55,7 +55,7 @@ This is REFACTORING - behavior must NOT change:
 └──────┬──────┘
        ▼
 ┌─────────────┐
-│   Design    │ → USER APPROVAL REQUIRED
+│   Design    │ → USER APPROVAL REQUIRED (includes architecture rules)
 └──────┬──────┘
        ▼
 ┌─────────────────────────────────────────────────┐
@@ -69,8 +69,14 @@ This is REFACTORING - behavior must NOT change:
 │  └──────┬──────┘                           │   │
 │         ▼                                   │   │
 │  ┌─────────────┐     White-box             │   │
-│  │ Regression  │──── REGRESSION ───────────┘   │
-│  │ Check (WB)  │                               │
+│  │ Regression  │──── REGRESSION ───────────┤   │
+│  │ Check (WB)  │                           │   │
+│  └──────┬──────┘                           │   │
+│         │ PASS                             │   │
+│         ▼                                   │   │
+│  ┌─────────────┐     Architecture          │   │
+│  │ Architecture│──── VIOLATION ────────────┘   │
+│  │    Check    │                               │
 │  └──────┬──────┘                               │
 │         │ PASS                                 │
 │         ▼                                      │
@@ -235,7 +241,104 @@ for refactored_function in refactored_functions:
 3. If < 3 retries → Re-launch implementation-agent with fix instructions
 4. If >= 3 retries → STOP and report to user
 
-### 4.4 Run Lint/Format
+### 4.4 Architecture Compliance Check (MANDATORY)
+
+**Verify implementation follows the approved design's architecture rules.**
+
+The design phase defines architectural boundaries and dependency rules.
+Implementation MUST comply with these rules.
+
+```python
+# 1. Extract architecture rules from design
+architecture_rules = design.get_architecture_rules()
+# Example rules:
+# - "Application layer must not depend on Presentation layer"
+# - "Domain layer must not depend on Infrastructure layer"
+# - "Controllers must call Use Cases, not Repositories directly"
+
+# 2. Build forbidden dependency patterns
+forbidden_patterns = []
+for rule in architecture_rules:
+    if rule.type == "layer_dependency":
+        # e.g., Application → Presentation is forbidden
+        forbidden_patterns.append({
+            "from_layer": rule.from_layer,
+            "to_layer": rule.to_layer,
+            "pattern": f"{rule.from_layer}.*require.*{rule.to_layer}"
+        })
+
+# 3. Check for violations
+for pattern in forbidden_patterns:
+    violations = Grep(
+        pattern=pattern["pattern"],
+        path=f"{target_path}/{pattern['from_layer']}"
+    )
+    if violations:
+        ARCHITECTURE_VIOLATION = True
+        violation_details.append({
+            "rule": f"{pattern['from_layer']} must not depend on {pattern['to_layer']}",
+            "files": violations
+        })
+```
+
+**Common Architecture Violations to Check:**
+
+| Architecture | Forbidden Dependency | Grep Pattern Example |
+|--------------|---------------------|----------------------|
+| Clean Architecture | Application → Presentation | `application.*require.*presentation` |
+| Clean Architecture | Domain → Infrastructure | `domain.*require.*infrastructure` |
+| Clean Architecture | Domain → Application | `domain.*require.*application` |
+| Layered | Service → Controller | `service.*import.*controller` |
+| Hexagonal | Core → Adapter | `core.*require.*adapter` |
+
+**Design-Specific Rules:**
+
+Check the approved design document for:
+1. Layer definitions and their allowed dependencies
+2. Module boundaries and communication rules
+3. Prohibited patterns (e.g., "No direct DB access from controllers")
+4. Required patterns (e.g., "All external calls must go through adapters")
+
+**Verification Steps:**
+
+```python
+# For each layer defined in design:
+for layer in design.layers:
+    allowed_deps = layer.allowed_dependencies
+
+    # Find all imports/requires in this layer
+    imports = Grep(pattern="require|import", path=f"{target_path}/{layer.path}")
+
+    for imp in imports:
+        target_layer = resolve_layer(imp.target)
+        if target_layer not in allowed_deps:
+            ARCHITECTURE_VIOLATION = True
+```
+
+**Checklist:**
+- [ ] No forbidden layer dependencies (Grep patterns)
+- [ ] All modules in correct directories per design
+- [ ] Interfaces defined where design specifies
+- [ ] Dependency injection used where design requires
+- [ ] No circular dependencies between modules
+
+**If architecture violation detected:**
+```
+→ Increment architecture_retry_count
+→ IF architecture_retry_count > 3:
+    → STOP and report to user:
+      "Architecture violations not resolved after 3 attempts"
+      "Violations: {violation_details}"
+      "Design rules: {architecture_rules}"
+→ ELSE:
+    → Go back to Phase 4.1 with prompt:
+      "Fix architecture violations:
+       - {violation_1}: {file} depends on {forbidden_layer}
+       - {violation_2}: {file} depends on {forbidden_layer}
+       Refer to approved design for correct dependency direction."
+```
+
+### 4.5 Run Lint/Format
 
 ```bash
 # Detect and run appropriate tools
@@ -466,12 +569,19 @@ state:
   test_retry_count: 0
   review_retry_count: 0
   regression_retry_count: 0  # For both white-box and black-box checks
+  architecture_retry_count: 0  # For architecture compliance check
   max_retries: 3
 
   created_files: []
   modified_files: []
   deleted_files: []
   deleted_symbols: []  # Track for regression checking
+
+  # Architecture rules from approved design
+  architecture_rules:
+    layers: []  # e.g., ["domain", "application", "infrastructure", "presentation"]
+    forbidden_dependencies: []  # e.g., [{"from": "application", "to": "presentation"}]
+    required_patterns: []  # e.g., ["use_case", "repository", "adapter"]
 
   test_results:
     passed: 0
@@ -483,6 +593,10 @@ state:
     blackbox_passed: false
     dangling_references: []
     behavior_differences: []
+
+  architecture_check:
+    passed: false
+    violations: []  # e.g., [{"file": "...", "rule": "...", "detail": "..."}]
 
   review_issues:
     critical: []
@@ -501,6 +615,8 @@ state:
 | Implementation fails (>= 3 retries) | Stop, report to user |
 | White-box regression (< 3 retries) | Back to implementation with specific issue |
 | White-box regression (>= 3 retries) | Stop, report dangling references |
+| Architecture violation (< 3 retries) | Back to implementation with violation details |
+| Architecture violation (>= 3 retries) | Stop, report violations and design rules |
 | Tests fail (< 3 retries) | Back to implementation |
 | Tests fail (>= 3 retries) | Stop, ask user what to do |
 | Black-box regression (< 3 retries) | Back to implementation with behavior diff |
