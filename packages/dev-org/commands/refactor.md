@@ -27,10 +27,17 @@ After every subagent completes, YOU (orchestrator) must verify:
 ```
 Test Failed? → Back to Implementation (max 3 times)
 Review Issues? → Back to Implementation (max 3 times)
+Regression Detected? → Back to Implementation (max 3 times)
 Still Failing? → Stop and ask user
 ```
 
-### 3. Maximum Retry Limits
+### 3. Regression Prevention Is Critical
+This is REFACTORING - behavior must NOT change:
+- **Implementation Phase**: White-box verification (code-level equivalence)
+- **QA Phase**: Black-box verification (input/output equivalence)
+- Any regression = immediate feedback loop to implementation
+
+### 4. Maximum Retry Limits
 - Implementation retry: 3 times per module
 - Test fix retry: 3 times total
 - Review fix retry: 3 times total
@@ -51,20 +58,38 @@ Still Failing? → Stop and ask user
 │   Design    │ → USER APPROVAL REQUIRED
 └──────┬──────┘
        ▼
+┌─────────────────────────────────────────────────┐
+│                FEEDBACK LOOP                    │
+│            (max 3 retries each)                 │
+│  ┌─────────────────────────────────────────┐   │
+│  │                                         │   │
+│  ▼                                         │   │
+│  ┌─────────────┐                           │   │
+│  │Implementation│                           │   │
+│  └──────┬──────┘                           │   │
+│         ▼                                   │   │
+│  ┌─────────────┐     White-box             │   │
+│  │ Regression  │──── REGRESSION ───────────┘   │
+│  │ Check (WB)  │                               │
+│  └──────┬──────┘                               │
+│         │ PASS                                 │
+│         ▼                                      │
+│  ┌─────────────┐                               │
+│  │  QA & Test  │                               │
+│  └──────┬──────┘                               │
+│         ▼                                      │
+│  ┌─────────────┐     Black-box                 │
+│  │ Regression  │──── REGRESSION ───────────────┘
+│  │ Check (BB)  │
+│  └──────┬──────┘
+│         │ PASS
+└─────────┼───────────────────────────────────────
+          ▼
 ┌─────────────┐     ┌──────────────────┐
-│Implementation│◄───│ Feedback Loop    │
-└──────┬──────┘     │ (max 3 retries)  │
-       ▼            └────────▲─────────┘
-┌─────────────┐              │
-│  QA & Test  │──── FAIL ────┘
-└──────┬──────┘
+│   Review    │────►│ Fix Issues       │──┐
+└──────┬──────┘     └──────────────────┘  │
+       │◄─────────────────────────────────┘
        │ PASS
-       ▼
-┌─────────────┐     ┌──────────────────┐
-│   Review    │────►│ Fix Issues       │
-└──────┬──────┘     └────────┬─────────┘
-       │                     │
-       │◄────────────────────┘
        ▼
 ┌─────────────┐
 │ Completion  │
@@ -168,7 +193,49 @@ for file in claimed_modified_files:
 2. Re-launch implementation-agent with specific instructions
 3. Max 3 retries, then stop and report to user
 
-### 4.3 Run Lint/Format
+### 4.3 White-box Regression Check (MANDATORY)
+
+**This is REFACTORING - behavior must NOT change.**
+
+Check for regressions at code level:
+
+```python
+# 1. Check no references to old/deleted code remain
+for old_symbol in deleted_symbols:
+    references = Grep(pattern=old_symbol, path=target_path)
+    if references:
+        REGRESSION_DETECTED = True
+        # Old code still referenced!
+
+# 2. Verify functional equivalence
+for refactored_function in refactored_functions:
+    # Read new implementation
+    new_code = Read(new_file_path)
+
+    # Verify same logic paths exist:
+    # - Same conditionals
+    # - Same loops
+    # - Same external calls
+    # - Same return values
+
+    if logic_differs:
+        REGRESSION_DETECTED = True
+```
+
+**Checklist:**
+- [ ] No dangling references to deleted symbols (Grep old names)
+- [ ] All public APIs preserved (same signatures)
+- [ ] Same external dependencies called
+- [ ] Same error handling paths
+- [ ] Same return value patterns
+
+**If regression detected:**
+1. Log specific regression issue
+2. Increment regression_retry_count
+3. If < 3 retries → Re-launch implementation-agent with fix instructions
+4. If >= 3 retries → STOP and report to user
+
+### 4.4 Run Lint/Format
 
 ```bash
 # Detect and run appropriate tools
@@ -179,6 +246,8 @@ npm run format 2>/dev/null || npx prettier --write .
 ---
 
 ## Phase 5: QA & Test
+
+**CRITICAL: This phase verifies NO REGRESSION in behavior.**
 
 ### 5.1 QA Analysis
 
@@ -201,7 +270,58 @@ Task(subagent_type="test-implementer", prompt="Implement tests: {test_design}")
 npm test || pytest || go test ./... || mvn test
 ```
 
-### 5.4 Handle Test Results
+### 5.4 Black-box Regression Check (MANDATORY)
+
+**Verify behavior is IDENTICAL before and after refactoring.**
+
+This is INPUT/OUTPUT level verification:
+
+```python
+# For each refactored component, verify:
+for component in refactored_components:
+
+    # 1. Identify testable entry points
+    entry_points = find_public_apis(component)
+
+    # 2. For each entry point, verify same behavior:
+    for api in entry_points:
+        # Check: same inputs → same outputs
+        # Check: same error inputs → same error outputs
+        # Check: same edge cases → same results
+
+        if behavior_differs:
+            REGRESSION_DETECTED = True
+```
+
+**Verification Methods:**
+
+| Method | When to Use |
+|--------|-------------|
+| Existing tests pass | Always - first line of defense |
+| Manual smoke test | For UI/CLI components |
+| API comparison | For service endpoints |
+| Output diff | For data processing functions |
+
+**Checklist:**
+- [ ] All existing tests pass (no behavior change)
+- [ ] Public APIs return same results for same inputs
+- [ ] Error handling produces same error types/messages
+- [ ] Side effects (DB writes, file I/O, etc.) are identical
+- [ ] Performance characteristics are similar (no major regression)
+
+**If regression detected:**
+```
+→ Increment regression_retry_count
+→ IF regression_retry_count > 3:
+    → STOP and report to user:
+      "Behavior regression detected after 3 fix attempts"
+      "Differences: {regression_details}"
+→ ELSE:
+    → Go back to Phase 4.1 with prompt:
+      "Fix behavior regression: {specific_difference}"
+```
+
+### 5.5 Handle Test Results
 
 ```
 IF all tests pass:
@@ -345,16 +465,24 @@ state:
   implementation_retry_count: 0
   test_retry_count: 0
   review_retry_count: 0
+  regression_retry_count: 0  # For both white-box and black-box checks
   max_retries: 3
 
   created_files: []
   modified_files: []
   deleted_files: []
+  deleted_symbols: []  # Track for regression checking
 
   test_results:
     passed: 0
     failed: 0
     failures: []
+
+  regression_check:
+    whitebox_passed: false
+    blackbox_passed: false
+    dangling_references: []
+    behavior_differences: []
 
   review_issues:
     critical: []
@@ -371,8 +499,12 @@ state:
 | Analyzer fails | Continue with others, note partial results |
 | Implementation fails (< 3 retries) | Retry with error details |
 | Implementation fails (>= 3 retries) | Stop, report to user |
+| White-box regression (< 3 retries) | Back to implementation with specific issue |
+| White-box regression (>= 3 retries) | Stop, report dangling references |
 | Tests fail (< 3 retries) | Back to implementation |
 | Tests fail (>= 3 retries) | Stop, ask user what to do |
+| Black-box regression (< 3 retries) | Back to implementation with behavior diff |
+| Black-box regression (>= 3 retries) | Stop, report behavior differences |
 | Critical review issue (< 3 retries) | Back to implementation |
 | Critical review issue (>= 3 retries) | Stop, report to user |
 | Verification fails | Retry subagent or fix manually |
