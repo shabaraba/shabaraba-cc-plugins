@@ -61,13 +61,16 @@ Star-topology AI organization with async sub-agents, worktree isolation, daily l
 | `/claude-org:qa <feature>` | Start QA design task |
 | `/claude-org:content <type> <topic>` | Create marketing content |
 
-## Agents (Phase 1)
+## Agents
 
 | Agent | Role |
 |-------|------|
-| product-spec | PRD, API specs, requirements |
+| designer | Technical design before implementation |
 | engineer | Software implementation (uses platform skills) |
-| qa-design | Test case design, boundary analysis |
+| reviewer | Code review and auto-fix |
+| qa | Test design and execution |
+| product-spec | PRD, API specs, requirements |
+| qa-design | Test case design only (no execution) |
 | marketing-content | ASO, SNS, blog, release notes |
 
 ## Platform Skills
@@ -79,6 +82,7 @@ The `engineer` agent uses platform-specific skills:
 | ios-dev | Swift, SwiftUI, Live Activities, WidgetKit, XCTest |
 | frontend-dev | React, Next.js, Tailwind CSS, TypeScript, Vitest |
 | backend-dev | Cloudflare Workers, Hono, D1, Drizzle ORM, REST API |
+| orchestrator | Full workflow orchestration (design → develop → review → QA) |
 
 ## Directory Structure
 
@@ -88,12 +92,20 @@ project/
 │   ├── feature-live-activities/
 │   └── feature-lp-renewal/
 │
-├── .claude-work/                  # Work logs & context
+├── .claude-work/                  # Work logs & artifacts
 │   ├── state.json                 # Task state
 │   ├── daily/                     # Daily logs
 │   │   └── 2025-01-01/
-│   │       ├── eng-ios.md
-│   │       └── eng-web.md
+│   │       ├── designer.md
+│   │       ├── engineer.md
+│   │       ├── reviewer.md
+│   │       └── qa.md
+│   ├── design/                    # Phase 1 output
+│   │   └── feature-xxx.md
+│   ├── review/                    # Phase 3 output
+│   │   └── feature-xxx.md
+│   ├── qa/                        # Phase 4 output
+│   │   └── feature-xxx.md
 │   ├── context/                   # Task context for handoff
 │   │   └── feature-xxx.md
 │   └── handoff/                   # Completion reports
@@ -112,27 +124,37 @@ project/
 ```
 1. CEO: "/claude-org:dev Live Activities 実装"
 
-2. Secretary:
+2. Secretary (Claude Code):
    - Creates worktree: .worktrees/feature-live-activities
-   - Launches engineer (async, platform: ios)
-   - Reports: "engineer に依頼しました (ios-dev skill)"
+   - Reads orchestrator skill
+   - Starts 4-phase workflow
 
-3. CEO: (does other work)
+3. Phase 1 - Design:
+   - Launches designer agent (background)
+   - Waits for completion
+   - Output: .claude-work/design/feature-live-activities.md
 
-4. CEO: "/claude-org:status"
+4. Phase 2 - Development:
+   - Launches engineer agent (background)
+   - Reads design doc, implements
+   - Waits for completion
+   - Output: Code + commits
 
-5. Secretary:
-   - Checks TaskOutput
-   - Reads daily log
-   - Reports progress and blockers
+5. Phase 3 - Review:
+   - Launches reviewer agent (background)
+   - Reviews code, fixes issues
+   - Waits for completion
+   - Output: .claude-work/review/feature-live-activities.md
 
-6. engineer completes:
-   - Commits code
-   - Writes handoff file
-   - Returns completion JSON
+6. Phase 4 - QA:
+   - Launches qa agent (background)
+   - Designs tests, runs tests
+   - Waits for completion
+   - Output: .claude-work/qa/feature-live-activities.md
 
-7. Secretary:
-   - "✅ feature/live-activities 完了"
+7. Secretary reports to CEO:
+   - "✅ 開発完了: feature/live-activities"
+   - Phase summary with durations
    - "マージしますか？"
 
 8. CEO: "/claude-org:merge feature/live-activities"
@@ -142,6 +164,11 @@ project/
    - Removes worktree
    - Cleanup complete
 ```
+
+**User only needs to:**
+1. Run `/dev` command
+2. Answer questions if phases encounter blockers
+3. Run `/merge` when complete
 
 ## Daily Log Format
 
