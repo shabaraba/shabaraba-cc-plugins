@@ -18,6 +18,17 @@
       },
       "source": "./packages/dev-org",
       "category": "development"
+    },
+    {
+      "name": "claude-org",
+      "description": "Star-topology AI organization with async sub-agents, worktree isolation, daily logs, and context handoff. 7 agents, 6 commands, 5 skills for automated 4-phase development workflow (design→develop→review→QA).",
+      "version": "0.1.0",
+      "author": {
+        "name": "shabaraba",
+        "email": ""
+      },
+      "source": "./packages/claude-org",
+      "category": "development"
     }
   ]
 }
