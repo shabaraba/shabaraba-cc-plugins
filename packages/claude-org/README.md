@@ -16,9 +16,10 @@ Star-topology AI organization with async sub-agents, worktree isolation, daily l
        ┌───────────────┼───────────────┐
        │               │               │
        ▼               ▼               ▼
-  ┌─────────┐    ┌─────────┐    ┌─────────┐
-  │ eng-ios │    │ eng-web │    │   ...   │  ← Async Sub-agents
-  └─────────┘    └─────────┘    └─────────┘
+  ┌──────────┐   ┌──────────┐   ┌──────────┐
+  │ engineer │   │ qa-design│   │   ...    │  ← Async Sub-agents
+  │ +skills  │   │          │   │          │
+  └──────────┘   └──────────┘   └──────────┘
        │               │               │
        ▼               ▼               ▼
   .worktrees/    .worktrees/    .worktrees/  ← Isolated Environments
@@ -65,10 +66,19 @@ Star-topology AI organization with async sub-agents, worktree isolation, daily l
 | Agent | Role |
 |-------|------|
 | product-spec | PRD, API specs, requirements |
-| eng-ios | Swift/SwiftUI, Live Activities, WidgetKit |
-| eng-web | React/Next.js, Tailwind, Cloudflare Pages |
+| engineer | Software implementation (uses platform skills) |
 | qa-design | Test case design, boundary analysis |
 | marketing-content | ASO, SNS, blog, release notes |
+
+## Platform Skills
+
+The `engineer` agent uses platform-specific skills:
+
+| Skill | Platform |
+|-------|----------|
+| ios-dev | Swift, SwiftUI, Live Activities, WidgetKit, XCTest |
+| frontend-dev | React, Next.js, Tailwind CSS, TypeScript, Vitest |
+| backend-dev | Cloudflare Workers, Hono, D1, Drizzle ORM, REST API |
 
 ## Directory Structure
 
@@ -104,8 +114,8 @@ project/
 
 2. Secretary:
    - Creates worktree: .worktrees/feature-live-activities
-   - Launches eng-ios (async)
-   - Reports: "eng-ios に依頼しました"
+   - Launches engineer (async, platform: ios)
+   - Reports: "engineer に依頼しました (ios-dev skill)"
 
 3. CEO: (does other work)
 
@@ -116,7 +126,7 @@ project/
    - Reads daily log
    - Reports progress and blockers
 
-6. eng-ios completes:
+6. engineer completes:
    - Commits code
    - Writes handoff file
    - Returns completion JSON
@@ -138,9 +148,9 @@ project/
 Agents write progress to `.claude-work/daily/{date}/{agent}.md`:
 
 ```markdown
-# eng-ios 分報 - 2025-01-01
+# engineer 分報 - 2025-01-01
 
-## タスク: feature/live-activities
+## タスク: feature/live-activities (platform: ios)
 
 ### 14:30 開始
 - Live Activities 実装開始
@@ -161,7 +171,6 @@ Agents write progress to `.claude-work/daily/{date}/{agent}.md`:
 ## Expansion Roadmap
 
 ### Phase 2
-- eng-api (Cloudflare Workers/D1)
 - qa-automation (XCTest/Playwright)
 - product-discovery (Market research)
 
