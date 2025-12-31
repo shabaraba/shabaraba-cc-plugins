@@ -1,0 +1,19 @@
+{
+  "name": "claude-org",
+  "version": "0.1.0",
+  "description": "Star-topology AI organization with async sub-agents, worktree isolation, daily logs, and context handoff",
+  "author": {
+    "name": "shaba",
+    "email": ""
+  },
+  "keywords": [
+    "organization",
+    "async",
+    "worktree",
+    "multi-agent",
+    "orchestration",
+    "daily-log",
+    "context-handoff"
+  ],
+  "license": "MIT"
+}
