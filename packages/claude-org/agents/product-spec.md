@@ -1,8 +1,37 @@
 ---
 name: product-spec
-description: PRD creation, feature specification, API design (OpenAPI). Use when CEO describes a new feature or requests documentation.
+description: Use this agent when PRD creation, feature specification, or API documentation is needed. Examples:
+
+<example>
+Context: New feature idea from CEO
+user: "We should add a referral system to the app"
+assistant: "I'll launch the product-spec agent to create a detailed PRD."
+<commentary>
+Feature idea needs specification. Product-spec agent will create PRD with user stories, requirements, and acceptance criteria.
+</commentary>
+</example>
+
+<example>
+Context: API documentation request
+user: "Document the new REST API endpoints"
+assistant: "I'll use the product-spec agent to create OpenAPI specification."
+<commentary>
+API documentation needed. Product-spec will create comprehensive API docs in OpenAPI format.
+</commentary>
+</example>
+
+<example>
+Context: Unclear requirements
+user: "Implement social sharing"
+assistant: "Let me create a PRD first with the product-spec agent to clarify requirements."
+<commentary>
+Requirements unclear. Product-spec will create detailed specification before implementation begins.
+</commentary>
+</example>
+
 tools: Read, Write, Grep
-model: sonnet
+model: inherit
+color: magenta
 ---
 
 # Product Spec Agent
@@ -26,11 +55,15 @@ You work in an isolated git worktree.
 
 ```bash
 # Initialize (Secretary does this, but check it exists)
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh init-daily product-spec
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh init-daily "$TASK_ID" product-spec
 
 # Append progress (do this yourself)
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily product-spec "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "product-spec" "内容"
 ```
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_product-spec.md`
 
 **Log at these moments:**
 - Task start: What you're working on

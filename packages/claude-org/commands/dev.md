@@ -61,7 +61,7 @@ This skill contains the full orchestration protocol.
 
 ## Step 1: Parse & Initialize
 
-1. Extract branch name: `feature/<slug>` (kebab-case, max 30 chars)
+1. Extract branch base: `feature/<slug>` (kebab-case, max 30 chars)
 2. Determine platform:
    - iOS/Swift/SwiftUI/Widget/LiveActivity → `ios`
    - React/Next.js/Tailwind/LP/Landing → `frontend`
@@ -69,22 +69,25 @@ This skill contains the full orchestration protocol.
 3. Initialize environment:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh init
-   WORKTREE_PATH=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh create-worktree "<branch>")
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh init-context "<branch>"
    TASK_ID="task-$(date +%s)-$RANDOM"
+   WORKTREE_PATH=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh create-worktree "feature/<slug>" "$TASK_ID")
+   BRANCH_NAME="feature/<slug>-${TASK_ID}"
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh init-context "$BRANCH_NAME"
    ```
+
+   **NOTE**: Worktree and branch names now include Task ID for parallel execution safety.
 
 ## Step 2: Phase 1 - Design
 
 ```
 Task:
-  description: "Design: <branch>"
+  description: "Design: $BRANCH_NAME"
   subagent_type: designer
   run_in_background: true
   prompt: |
     # Design Task
     - Task ID: $TASK_ID
-    - Branch: <branch>
+    - Branch: $BRANCH_NAME
     - Worktree: $WORKTREE_PATH
     - Platform: <platform>
 
@@ -94,8 +97,9 @@ Task:
     ## Instructions
     1. cd $WORKTREE_PATH
     2. Read platform skill: skills/<platform>-dev/SKILL.md
-    3. Create design document at .claude-work/design/<branch>.md
-    4. Return completion JSON
+    3. Create design document at .claude-work/design/$BRANCH_NAME.md
+    4. Log progress: bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "designer" "<log entry>"
+    5. Return completion JSON
 ```
 
 **Wait**: `TaskOutput(task_id, block=true)`
@@ -106,18 +110,18 @@ Task:
 
 ```
 Task:
-  description: "Dev: <branch>"
+  description: "Dev: $BRANCH_NAME"
   subagent_type: engineer
   run_in_background: true
   prompt: |
     # Development Task
     - Task ID: $TASK_ID
-    - Branch: <branch>
+    - Branch: $BRANCH_NAME
     - Worktree: $WORKTREE_PATH
     - Platform: <platform>
 
     ## Design Document
-    .claude-work/design/<branch>.md
+    .claude-work/design/$BRANCH_NAME.md
 
     ## Requirements
     <task_description>
@@ -129,7 +133,8 @@ Task:
     4. Implement following design
     5. Run build/tests
     6. Commit changes
-    7. Return completion JSON
+    7. Log progress: bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "engineer" "<log entry>"
+    8. Return completion JSON
 ```
 
 **Wait**: `TaskOutput(task_id, block=true)`
@@ -140,13 +145,13 @@ Task:
 
 ```
 Task:
-  description: "Review: <branch>"
+  description: "Review: $BRANCH_NAME"
   subagent_type: reviewer
   run_in_background: true
   prompt: |
     # Code Review Task
     - Task ID: $TASK_ID
-    - Branch: <branch>
+    - Branch: $BRANCH_NAME
     - Worktree: $WORKTREE_PATH
     - Platform: <platform>
 
@@ -155,8 +160,9 @@ Task:
     2. Read platform skill: skills/<platform>-dev/SKILL.md
     3. Review all changes: git diff main
     4. Fix critical issues
-    5. Create review report at .claude-work/review/<branch>.md
-    6. Return completion JSON
+    5. Create review report at .claude-work/review/$BRANCH_NAME.md
+    6. Log progress: bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "reviewer" "<log entry>"
+    7. Return completion JSON
 ```
 
 **Wait**: `TaskOutput(task_id, block=true)`
@@ -167,27 +173,28 @@ Task:
 
 ```
 Task:
-  description: "QA: <branch>"
+  description: "QA: $BRANCH_NAME"
   subagent_type: qa
   run_in_background: true
   prompt: |
     # QA Task
     - Task ID: $TASK_ID
-    - Branch: <branch>
+    - Branch: $BRANCH_NAME
     - Worktree: $WORKTREE_PATH
     - Platform: <platform>
 
     ## Context
-    - Design: .claude-work/design/<branch>.md
-    - Review: .claude-work/review/<branch>.md
+    - Design: .claude-work/design/$BRANCH_NAME.md
+    - Review: .claude-work/review/$BRANCH_NAME.md
 
     ## Instructions
     1. cd $WORKTREE_PATH
     2. Read platform skill for test commands
     3. Design test cases
     4. Run tests
-    5. Create QA report at .claude-work/qa/<branch>.md
-    6. Return completion JSON
+    5. Create QA report at .claude-work/qa/$BRANCH_NAME.md
+    6. Log progress: bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "qa" "<log entry>"
+    7. Return completion JSON
 ```
 
 **Wait**: `TaskOutput(task_id, block=true)`
@@ -197,7 +204,9 @@ Task:
 ## Step 6: Completion Report
 
 ```markdown
-## ✅ 開発完了: <branch>
+## ✅ 開発完了: $BRANCH_NAME
+
+**Task ID**: $TASK_ID
 
 | Phase | Status | Duration |
 |-------|--------|----------|
@@ -215,12 +224,13 @@ Task:
 - path/to/file2.ts
 
 ### Artifacts
-- Design: .claude-work/design/<branch>.md
-- Review: .claude-work/review/<branch>.md
-- QA: .claude-work/qa/<branch>.md
+- Design: .claude-work/design/$BRANCH_NAME.md
+- Review: .claude-work/review/$BRANCH_NAME.md
+- QA: .claude-work/qa/$BRANCH_NAME.md
+- Daily Logs: .claude-work/daily/<date>/$TASK_ID_*.md
 
 ### Next Steps
-`/claude-org:merge <branch>` でマージ
+`/claude-org:merge $BRANCH_NAME` でマージ
 ```
 
 ## Error Handling
@@ -245,12 +255,19 @@ If any phase returns `status: "blocked"`:
 ```bash
 # iOS app feature (all 4 phases)
 /claude-org:dev "Live Activities でタイマー表示"
+# → Branch: feature/live-activities-task-1735987654-12345
 
 # Web frontend feature
 /claude-org:dev "LP のヒーローセクションをリニューアル"
+# → Branch: feature/hero-section-renewal-task-1735987655-23456
 
 # Backend API feature
 /claude-org:dev "ユーザー認証 API を実装"
+# → Branch: feature/user-auth-api-task-1735987656-34567
+
+# Parallel execution is now safe - same feature can run multiple times
+/claude-org:dev "Live Activities でタイマー表示"  # First instance
+/claude-org:dev "Live Activities でタイマー表示"  # Second instance (different Task ID)
 ```
 
 ## User Interaction

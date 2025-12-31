@@ -4,6 +4,31 @@ set -e
 WORK_DIR=".claude-work"
 WORKTREE_DIR=".worktrees"
 STATE_FILE="$WORK_DIR/state.json"
+LOCK_FILE="$WORK_DIR/.state.lock"
+
+# Lock acquisition for state.json operations
+acquire_lock() {
+  local timeout=30
+  local count=0
+
+  while [ -f "$LOCK_FILE" ]; do
+    sleep 0.1
+    count=$((count + 1))
+    if [ $count -gt $((timeout * 10)) ]; then
+      echo "error: Lock timeout after ${timeout}s" >&2
+      return 1
+    fi
+  done
+
+  echo $$ > "$LOCK_FILE"
+  trap "rm -f $LOCK_FILE" EXIT INT TERM
+}
+
+# Lock release
+release_lock() {
+  rm -f "$LOCK_FILE"
+  trap - EXIT INT TERM
+}
 
 init() {
   mkdir -p "$WORK_DIR"/{daily,context,handoff}
@@ -20,10 +45,14 @@ init() {
 }
 
 create_worktree() {
-  local branch_name="$1"
-  local base_branch="${2:-main}"
+  local branch_base="$1"
+  local task_id="$2"
+  local base_branch="${3:-main}"
 
   init
+
+  # Construct unique branch name with task ID
+  local branch_name="${branch_base}-${task_id}"
 
   if [ -d "$WORKTREE_DIR/$branch_name" ]; then
     echo "error: Worktree $branch_name already exists" >&2
@@ -64,6 +93,8 @@ add_task() {
   local description="$5"
 
   init
+  acquire_lock
+
   local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   local tmp=$(mktemp)
 
@@ -83,16 +114,22 @@ add_task() {
        "started_at": $ts,
        "status": $status
      }]' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+
+  release_lock
 }
 
 update_status() {
   local task_id="$1"
   local status="$2"
 
+  acquire_lock
+
   local tmp=$(mktemp)
   jq --arg id "$task_id" --arg status "$status" \
      '(.tasks[] | select(.id == $id)).status = $status' \
      "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+
+  release_lock
 }
 
 get_tasks() {
@@ -107,21 +144,28 @@ get_running_tasks() {
 
 remove_task() {
   local task_id="$1"
+
+  acquire_lock
+
   local tmp=$(mktemp)
   jq --arg id "$task_id" '.tasks = [.tasks[] | select(.id != $id)]' \
      "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+
+  release_lock
 }
 
 init_daily_log() {
-  local agent="$1"
+  local task_id="$1"
+  local agent="$2"
   local today=$(date +%Y-%m-%d)
   local log_dir="$WORK_DIR/daily/$today"
-  local log_file="$log_dir/$agent.md"
+  local log_file="$log_dir/${task_id}_${agent}.md"
 
   mkdir -p "$log_dir"
   if [ ! -f "$log_file" ]; then
     cat > "$log_file" << EOF
 # $agent 分報 - $today
+Task ID: $task_id
 
 EOF
   fi
@@ -129,9 +173,10 @@ EOF
 }
 
 append_daily_log() {
-  local agent="$1"
-  local content="$2"
-  local log_file=$(init_daily_log "$agent")
+  local task_id="$1"
+  local agent="$2"
+  local content="$3"
+  local log_file=$(init_daily_log "$task_id" "$agent")
   local time=$(date +%H:%M)
 
   echo -e "\n### $time\n$content" >> "$log_file"
@@ -210,8 +255,8 @@ $summary
 
 
 ## 関連リンク
-- 分報: .claude-work/daily/$(date +%Y-%m-%d)/$agent.md
 - コンテキスト: .claude-work/context/$branch.md
+- 分報: .claude-work/daily/$(date +%Y-%m-%d)/ (Task ID別)
 EOF
 
   echo "$handoff_file"
@@ -219,7 +264,7 @@ EOF
 
 case "$1" in
   init) init ;;
-  create-worktree) create_worktree "$2" "$3" ;;
+  create-worktree) create_worktree "$2" "$3" "$4" ;;
   list-worktrees) list_worktrees ;;
   remove-worktree) remove_worktree "$2" ;;
   add-task) add_task "$2" "$3" "$4" "$5" "$6" ;;
@@ -227,11 +272,11 @@ case "$1" in
   get-tasks) get_tasks ;;
   get-running) get_running_tasks ;;
   remove-task) remove_task "$2" ;;
-  init-daily) init_daily_log "$2" ;;
-  append-daily) append_daily_log "$2" "$3" ;;
+  init-daily) init_daily_log "$2" "$3" ;;
+  append-daily) append_daily_log "$2" "$3" "$4" ;;
   init-context) init_context "$2" ;;
   create-handoff) create_handoff "$2" "$3" "$4" ;;
   *)
-    echo "Usage: $0 {init|create-worktree|list-worktrees|remove-worktree|add-task|update-status|get-tasks|get-running|remove-task|init-daily|append-daily|init-context|create-handoff}"
+    echo "Usage: $0 {init|create-worktree <branch-base> <task-id> [base-branch]|list-worktrees|remove-worktree|add-task|update-status|get-tasks|get-running|remove-task|init-daily <task-id> <agent>|append-daily <task-id> <agent> <content>|init-context|create-handoff}"
     exit 1 ;;
 esac

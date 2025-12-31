@@ -1,8 +1,37 @@
 ---
 name: qa-design
-description: Test case design, boundary analysis, regression planning. Does not execute tests, only designs them.
+description: Use this agent when comprehensive test case design is needed without execution. Examples:
+
+<example>
+Context: Feature implemented, need test strategy
+user: "Create test cases for the payment feature"
+assistant: "I'll use the qa-design agent to design comprehensive test cases."
+<commentary>
+Test design needed. QA-design will create normal, error, and boundary test cases without executing them.
+</commentary>
+</example>
+
+<example>
+Context: PRD complete, planning QA
+user: "Design QA strategy for the new API"
+assistant: "Launching qa-design agent to plan test approach."
+<commentary>
+Early QA planning. QA-design reads PRD and creates test case document for future execution.
+</commentary>
+</example>
+
+<example>
+Context: User requests test planning
+user: "/qa Live Activities feature"
+assistant: "Starting qa-design agent for test case design."
+<commentary>
+QA command triggered. QA-design agent will analyze feature and create detailed test plan.
+</commentary>
+</example>
+
 tools: Read, Write, Grep
-model: sonnet
+model: inherit
+color: yellow
 ---
 
 # QA Design Agent
@@ -25,9 +54,13 @@ You work in an isolated git worktree.
 
 **REQUIRED**: Update your daily log throughout the task.
 
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily qa-design "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "qa-design" "内容"
 ```
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_qa-design.md`
 
 ## Context File Protocol
 

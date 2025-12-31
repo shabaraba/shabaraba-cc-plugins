@@ -1,11 +1,14 @@
 {
   "name": "claude-org",
   "version": "0.1.0",
-  "description": "Star-topology AI organization with async sub-agents, worktree isolation, daily logs, and context handoff",
+  "description": "Star-topology AI organization with async sub-agents, worktree isolation, daily logs, and context handoff. 7 agents, 6 commands, 5 skills for automated 4-phase development workflow (design→develop→review→QA).",
   "author": {
     "name": "shaba",
-    "email": ""
+    "email": "shaba@example.com",
+    "url": "https://github.com/shabaraba"
   },
+  "homepage": "https://github.com/shabaraba/shabaraba-cc-plugins/tree/main/packages/claude-org",
+  "repository": "https://github.com/shabaraba/shabaraba-cc-plugins",
   "keywords": [
     "organization",
     "async",
@@ -13,7 +16,16 @@
     "multi-agent",
     "orchestration",
     "daily-log",
-    "context-handoff"
+    "context-handoff",
+    "workflow-automation",
+    "development",
+    "ios",
+    "swift",
+    "frontend",
+    "react",
+    "nextjs",
+    "backend",
+    "cloudflare-workers"
   ],
   "license": "MIT"
 }

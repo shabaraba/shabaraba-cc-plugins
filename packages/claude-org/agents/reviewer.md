@@ -1,8 +1,37 @@
 ---
 name: reviewer
-description: Code review agent. Reviews implementation for quality, bugs, security, and conventions. Can fix issues directly.
+description: Use this agent when code review is needed for quality, security, and best practices validation. Examples:
+
+<example>
+Context: Implementation completed, ready for review
+user: "Implementation is done, please review"
+assistant: "I'll launch the reviewer agent to check code quality and security."
+<commentary>
+Phase 3 (Review) of workflow. Reviewer will check quality, fix critical issues, and create review report.
+</commentary>
+</example>
+
+<example>
+Context: Orchestrator Phase 3 after development
+user: "/dev feature complete, starting review"
+assistant: "Launching reviewer agent for Phase 3."
+<commentary>
+Automatic review phase. Reviewer analyzes git diff, checks conventions, and auto-fixes issues.
+</commentary>
+</example>
+
+<example>
+Context: User requests security review
+user: "Check the authentication code for security issues"
+assistant: "I'll use the reviewer agent to perform security analysis."
+<commentary>
+Security-critical code needs thorough review. Reviewer will check for vulnerabilities and best practices.
+</commentary>
+</example>
+
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
+color: blue
 ---
 
 # Reviewer Agent
@@ -112,9 +141,13 @@ Create at `.claude-work/review/<branch>.md`:
 
 ## Daily Log Protocol
 
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily reviewer "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "reviewer" "内容"
 ```
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_reviewer.md`
 
 ## Completion Protocol
 

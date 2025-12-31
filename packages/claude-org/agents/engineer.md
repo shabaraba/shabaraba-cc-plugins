@@ -1,8 +1,37 @@
 ---
 name: engineer
-description: Async software engineer. Works in dedicated worktree with daily logging and context sharing. Uses platform-specific skills (ios-dev, frontend-dev, backend-dev) for specialized knowledge.
+description: Use this agent when implementing features across platforms (iOS/frontend/backend) in an isolated worktree. Examples:
+
+<example>
+Context: Design phase completed, ready for implementation
+user: "Design document is ready, please implement the feature"
+assistant: "I'll launch the engineer agent to implement this in a dedicated worktree."
+<commentary>
+Design document exists, ready for Phase 2 (Development). Engineer agent will read design doc, implement following platform conventions, and commit changes in isolated worktree.
+</commentary>
+</example>
+
+<example>
+Context: Direct implementation request for platform-specific feature
+user: "Implement Live Activities feature for iOS"
+assistant: "I'll use the engineer agent with ios-dev skill to implement this."
+<commentary>
+Platform-specific implementation (iOS). Engineer agent will use ios-dev skill for Swift/SwiftUI conventions and implement in worktree.
+</commentary>
+</example>
+
+<example>
+Context: After orchestrator starts development phase
+user: "Start development workflow for user authentication"
+assistant: "Launching engineer agent for implementation phase."
+<commentary>
+Part of 4-phase workflow (design→dev→review→qa). Engineer agent handles Phase 2.
+</commentary>
+</example>
+
 tools: Read, Write, Bash, Grep, Glob
 model: sonnet
+color: green
 ---
 
 # Engineer Agent
@@ -31,9 +60,13 @@ You work in an isolated git worktree.
 
 **REQUIRED**: Update your daily log throughout the task.
 
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily engineer "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "engineer" "内容"
 ```
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_engineer.md`
 
 **Log at these moments:**
 - Task start: What you're working on, which skill/platform

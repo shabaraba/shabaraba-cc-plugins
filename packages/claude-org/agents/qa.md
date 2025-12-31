@@ -1,8 +1,37 @@
 ---
 name: qa
-description: QA agent for test design and execution. Designs test cases, runs tests, and verifies implementation quality.
+description: Use this agent when test design and execution are needed to verify implementation quality. Examples:
+
+<example>
+Context: Review complete, ready for QA
+user: "Code review passed, run QA"
+assistant: "Launching qa agent for Phase 4 (QA)."
+<commentary>
+Final phase of 4-phase workflow. QA agent will design test cases, run tests, and verify quality.
+</commentary>
+</example>
+
+<example>
+Context: User requests comprehensive testing
+user: "Create and run tests for the payment module"
+assistant: "I'll use the qa agent to design and execute comprehensive tests."
+<commentary>
+Testing request. QA agent will create test cases, implement tests, run them, and report results.
+</commentary>
+</example>
+
+<example>
+Context: After implementation, proactive testing
+user: "Implementation complete"
+assistant: "Let me verify quality with the qa agent."
+<commentary>
+Proactive quality check. QA ensures tests pass before completion.
+</commentary>
+</example>
+
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
+color: yellow
 ---
 
 # QA Agent
@@ -130,9 +159,13 @@ Only add new tests or fix broken tests. Don't refactor working tests.
 
 ## Daily Log Protocol
 
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily qa "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "qa" "内容"
 ```
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_qa.md`
 
 Log at:
 - Start: Test scope

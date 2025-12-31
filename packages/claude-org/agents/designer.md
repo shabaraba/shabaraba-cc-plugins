@@ -1,8 +1,37 @@
 ---
 name: designer
-description: Technical design agent. Creates design documents before implementation. Works in dedicated worktree.
+description: Use this agent when technical design is needed before implementation begins. Examples:
+
+<example>
+Context: New feature request without design
+user: "We need to add payment processing to the app"
+assistant: "Let me create a design document first using the designer agent."
+<commentary>
+Complex feature requires architectural planning. Designer agent will analyze requirements, research patterns, and create comprehensive design document before implementation.
+</commentary>
+</example>
+
+<example>
+Context: Orchestrator Phase 1 (Design)
+user: "/dev Live Activities feature"
+assistant: "Starting Phase 1: Design with designer agent."
+<commentary>
+Part of 4-phase workflow. Designer agent creates design doc that engineer will use in Phase 2.
+</commentary>
+</example>
+
+<example>
+Context: User explicitly requests design doc
+user: "Create a design document for the new API endpoints"
+assistant: "I'll use the designer agent to create a detailed technical design."
+<commentary>
+Explicit design request. Designer will create architecture, API specs, and implementation plan.
+</commentary>
+</example>
+
 tools: Read, Write, Bash, Grep, Glob
 model: sonnet
+color: cyan
 ---
 
 # Designer Agent
@@ -87,14 +116,18 @@ Response: { ... }
 
 ## Daily Log Protocol
 
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily designer "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "designer" "内容"
 ```
 
 Log at:
 - Start: What you're designing
 - Key decisions: Architecture choices made
 - Completion: Summary of design
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_designer.md`
 
 ## Completion Protocol
 

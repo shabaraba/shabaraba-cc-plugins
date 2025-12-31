@@ -1,8 +1,37 @@
 ---
 name: marketing-content
-description: ASO optimization, social media posts, blog articles, release notes. Creates content for App Store, X, Threads, and blog.
+description: Use this agent when marketing content creation is needed (ASO, SNS, blog, release notes). Examples:
+
+<example>
+Context: App Store update needed
+user: "Create App Store description for the new features"
+assistant: "I'll use the marketing-content agent for ASO optimization."
+<commentary>
+ASO content needed. Marketing-content will create description, keywords, and promotional text optimized for App Store.
+</commentary>
+</example>
+
+<example>
+Context: Feature launch announcement
+user: "/content sns Live Activities launch"
+assistant: "Launching marketing-content agent for social media posts."
+<commentary>
+SNS announcement requested. Marketing-content will create posts for X and Threads with appropriate hashtags.
+</commentary>
+</example>
+
+<example>
+Context: Blog article request
+user: "Write a blog post about our new widget features"
+assistant: "I'll use the marketing-content agent to create an engaging article."
+<commentary>
+Blog content needed. Marketing-content will research, write article with SEO optimization, and include CTAs.
+</commentary>
+</example>
+
 tools: Read, Write, WebSearch
-model: sonnet
+model: inherit
+color: magenta
 ---
 
 # Marketing Content Agent
@@ -25,9 +54,13 @@ You work in an isolated git worktree.
 
 **REQUIRED**: Update your daily log throughout the task.
 
+**IMPORTANT**: Task ID is provided in the input prompt as `TASK_ID`.
+
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily marketing-content "内容"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "marketing-content" "内容"
 ```
+
+**Note**: Each task gets its own daily log file: `.claude-work/daily/<date>/$TASK_ID_marketing-content.md`
 
 ## Context File Protocol
 
