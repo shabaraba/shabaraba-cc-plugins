@@ -128,11 +128,40 @@ On any failure:
 - `code-reviewer-maintainability`
 - `code-reviewer-testability`
 
-### Skills (3)
+### Skills (4)
 
 - `solid-principles`: SOLID violation patterns and fixes
 - `refactoring-patterns`: Fowler's refactoring catalog
 - `code-quality-metrics`: Complexity thresholds
+- `self-directed-debugging`: Autonomous workflow with proactive questions, automated verification, and browser testing
+
+#### Self-Directed Debugging Skill
+
+**NEW**: Transforms Claude Code into a proactive, quality-focused developer.
+
+**Key Behaviors:**
+1. **Ask First, Code Later** - Uses AskUserQuestion tool to clarify ambiguous requirements before implementation
+2. **Comprehensive Verification** - Runs linter, type check, tests, build, and browser verification for every change
+3. **Auto-Fix Linter Errors** - Automatically fixes formatting and style issues
+4. **Browser Testing** - Opens DevTools and verifies actual functionality in browser
+5. **Transparent Reporting** - Reports all verification results to user
+
+**Example workflow:**
+```markdown
+User: "Add dark mode toggle"
+
+Claude:
+1. ❓ Asks: "Should dark mode persist? Respect system preferences?"
+2. 💻 Implements toggle component
+3. ✅ Verifies:
+   - npm run lint:fix → Auto-fixed 2 issues
+   - tsc --noEmit → Passed
+   - npm test → 8/8 passed
+   - npm run dev → Browser check: No console errors
+4. 📊 Reports: "Feature verified and ready to commit!"
+```
+
+**Use when:** Implementing features, fixing bugs, or refactoring to ensure quality through autonomous verification.
 
 ## Installation
 
