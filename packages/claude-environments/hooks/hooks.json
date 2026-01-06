@@ -1,0 +1,30 @@
+{
+  "description": "Audio notifications for Claude Code events",
+  "hooks": {
+    "Stop": [
+      {
+        "description": "Play sound notification when Claude finishes responding",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/notify-complete.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "description": "Play sound when permission is requested",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/notify-permission.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
