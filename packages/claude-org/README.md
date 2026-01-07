@@ -73,9 +73,40 @@ Star-topology AI organization with async sub-agents, worktree isolation, daily l
 | qa-design | Test case design only (no execution) |
 | marketing-content | ASO, SNS, blog, release notes |
 
-## Platform Skills
+## Skills
 
-The `engineer` agent uses platform-specific skills:
+### Quality Assurance Skill (NEW)
+
+The `engineer` agent now uses **`self-directed-debugging`** skill from the `dev-org` plugin:
+
+**Location**: `packages/dev-org/skills/self-directed-debugging/SKILL.md`
+
+**What it does**:
+- ❓ **Ask First**: Proactively asks clarifying questions before coding
+- 🔧 **Auto-Fix**: Automatically fixes linter errors
+- ✅ **Verify**: Runs comprehensive checks (lint, typecheck, tests, build, browser)
+- 📊 **Report**: Transparent verification results in daily logs
+
+**Example**:
+```markdown
+User: "Implement dark mode"
+
+engineer:
+1. Asks: "Should it persist? Respect system preferences?"
+2. Implements feature
+3. Verifies:
+   - npm run lint:fix → Auto-fixed 2 issues
+   - tsc --noEmit → Passed
+   - npm test → 8/8 passed
+   - Browser → No console errors
+4. Reports: "✅ Feature verified and ready!"
+```
+
+This ensures all implementations are quality-checked before completion.
+
+### Platform Skills
+
+The `engineer` agent also uses platform-specific skills:
 
 | Skill | Platform |
 |-------|----------|
