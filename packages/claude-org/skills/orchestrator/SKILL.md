@@ -1,250 +1,266 @@
 ---
 name: orchestrator
-description: Orchestrates the full development workflow (design → develop → review → QA) using sequential async sub-agents. Use this skill when executing /dev command.
+description: Orchestrates the async development workflow (design → develop → review → QA). Handles phase transitions when triggered by workflow-continue hook.
 ---
 
-# Orchestrator Skill
+# Orchestrator Skill (Async Workflow)
 
-You are the Secretary (Claude Code main process) orchestrating a full development workflow.
+You are the Secretary (Claude Code main process) orchestrating an **async** development workflow.
 
-## Workflow Overview
+## Key Principle: Non-Blocking Execution
 
+**NEVER block on phase completion.** Each phase runs in background. Phase transitions happen on user interactions via the workflow-continue hook.
+
+## Workflow State
+
+State is stored in `.claude-work/workflow.json`:
+
+```json
+{
+  "task_id": "task-1234567890-12345",
+  "branch": "feature/live-activities-task-1234567890-12345",
+  "platform": "ios",
+  "worktree": ".worktrees/feature/...",
+  "description": "Live Activities でタイマー表示",
+  "current_phase": 1,
+  "phases": {
+    "1": {"name": "design", "agent": "designer", "status": "running", "agent_task_id": "abc123"},
+    "2": {"name": "develop", "agent": "engineer", "status": "pending", "agent_task_id": null},
+    "3": {"name": "review", "agent": "reviewer", "status": "pending", "agent_task_id": null},
+    "4": {"name": "qa", "agent": "qa", "status": "pending", "agent_task_id": null}
+  },
+  "status": "running"
+}
 ```
-design → develop → review → QA → complete
-```
 
-Each phase is handled by a specialized sub-agent running in background. You wait for each phase to complete before starting the next.
-
-## Phase Details
+## Phase Prompts
 
 ### Phase 1: Design (designer agent)
 
-**Purpose**: Create technical design document before implementation.
-
-**Launch**:
 ```
 Task:
-  subagent_type: designer
+  description: "Design: $BRANCH_NAME"
+  subagent_type: claude-org:designer
   run_in_background: true
   prompt: |
     # Design Task
-
-    ## Context
-    - Branch: <branch>
-    - Worktree: <worktree_path>
-    - Platform: <platform>
+    - Task ID: $TASK_ID
+    - Branch: $BRANCH_NAME
+    - Worktree: $WORKTREE_PATH
+    - Platform: $PLATFORM
 
     ## Requirements
-    <original_task_description>
+    $TASK_DESCRIPTION
 
-    ## Deliverables
-    1. Create design doc at `.claude-work/design/<branch>.md`
-    2. Include: architecture, components, data flow, API design
-    3. Return completion JSON
+    ## Instructions
+    1. cd $WORKTREE_PATH
+    2. Read platform skill: skills/$PLATFORM-dev/SKILL.md
+    3. Create design document at .claude-work/design/$BRANCH_NAME.md
+    4. Log progress: bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily "$TASK_ID" "designer" "<log>"
+    5. Return completion JSON
 ```
-
-**Wait**: Use `TaskOutput` with `block: true` to wait for completion.
-
-**Verify**: Check design doc exists and has content.
-
----
 
 ### Phase 2: Development (engineer agent)
 
-**Purpose**: Implement based on design document.
-
-**Launch**:
 ```
 Task:
-  subagent_type: engineer
+  description: "Dev: $BRANCH_NAME"
+  subagent_type: claude-org:engineer
   run_in_background: true
   prompt: |
     # Development Task
-
-    ## Context
-    - Branch: <branch>
-    - Worktree: <worktree_path>
-    - Platform: <platform>
+    - Task ID: $TASK_ID
+    - Branch: $BRANCH_NAME
+    - Worktree: $WORKTREE_PATH
+    - Platform: $PLATFORM
 
     ## Design Document
-    Read: .claude-work/design/<branch>.md
+    Read: .claude-work/design/$BRANCH_NAME.md
 
     ## Requirements
-    <original_task_description>
+    $TASK_DESCRIPTION
 
     ## Instructions
-    1. Read platform skill (<platform>-dev)
-    2. Read design document
-    3. Implement following design
-    4. Run build/tests
-    5. Commit changes
-    6. Return completion JSON
+    1. cd $WORKTREE_PATH
+    2. Read platform skill: skills/$PLATFORM-dev/SKILL.md
+    3. Read design document
+    4. Implement following design
+    5. Run build/tests
+    6. Commit changes
+    7. Log progress
+    8. Return completion JSON
 ```
-
-**Wait**: Use `TaskOutput` with `block: true`.
-
-**Verify**: Check commits exist, build passed.
-
----
 
 ### Phase 3: Review (reviewer agent)
 
-**Purpose**: Review implementation for quality, bugs, and improvements.
-
-**Launch**:
 ```
 Task:
-  subagent_type: reviewer
+  description: "Review: $BRANCH_NAME"
+  subagent_type: claude-org:reviewer
   run_in_background: true
   prompt: |
     # Code Review Task
+    - Task ID: $TASK_ID
+    - Branch: $BRANCH_NAME
+    - Worktree: $WORKTREE_PATH
+    - Platform: $PLATFORM
 
-    ## Context
-    - Branch: <branch>
-    - Worktree: <worktree_path>
-    - Platform: <platform>
-
-    ## Scope
-    Review all commits on this branch.
-
-    ## Review Checklist
-    - Code quality and readability
-    - Bug detection
-    - Security issues
-    - Performance concerns
-    - Adherence to platform conventions
-
-    ## Deliverables
-    1. Create review report at `.claude-work/review/<branch>.md`
-    2. If critical issues found: fix them and commit
-    3. Return completion JSON with issues found
+    ## Instructions
+    1. cd $WORKTREE_PATH
+    2. Review all changes: git diff main
+    3. Fix critical issues
+    4. Create review report at .claude-work/review/$BRANCH_NAME.md
+    5. Log progress
+    6. Return completion JSON
 ```
-
-**Wait**: Use `TaskOutput` with `block: true`.
-
-**Handle Issues**: If reviewer made fixes, continue. If blocking issues remain, report to user.
-
----
 
 ### Phase 4: QA (qa agent)
 
-**Purpose**: Design test cases and verify implementation.
-
-**Launch**:
 ```
 Task:
-  subagent_type: qa
+  description: "QA: $BRANCH_NAME"
+  subagent_type: claude-org:qa
   run_in_background: true
   prompt: |
     # QA Task
+    - Task ID: $TASK_ID
+    - Branch: $BRANCH_NAME
+    - Worktree: $WORKTREE_PATH
+    - Platform: $PLATFORM
 
     ## Context
-    - Branch: <branch>
-    - Worktree: <worktree_path>
-    - Platform: <platform>
+    - Design: .claude-work/design/$BRANCH_NAME.md
+    - Review: .claude-work/review/$BRANCH_NAME.md
 
-    ## Scope
-    - Design document: .claude-work/design/<branch>.md
-    - Review report: .claude-work/review/<branch>.md
-
-    ## Deliverables
-    1. Create test cases at `.claude-work/qa/<branch>.md`
-    2. Run tests (unit, integration as applicable)
-    3. Report test results
-    4. Return completion JSON
+    ## Instructions
+    1. cd $WORKTREE_PATH
+    2. Design test cases
+    3. Run tests
+    4. Create QA report at .claude-work/qa/$BRANCH_NAME.md
+    5. Log progress
+    6. Return completion JSON
 ```
 
-**Wait**: Use `TaskOutput` with `block: true`.
+## Auto-Continue Protocol
 
-**Verify**: Check test results, all tests should pass.
+When `<workflow-auto-continue>` tag appears (from hook), follow this protocol:
 
----
-
-## Orchestration Protocol
-
-### Before Each Phase
-
-1. Log phase start to daily log:
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily secretary "Phase N: <phase_name> 開始"
-   ```
-
-2. Update task state:
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh update-task-phase "$TASK_ID" "<phase_name>"
-   ```
-
-### After Each Phase
-
-1. Check agent output for errors/blockers
-2. If blocked: Ask user for guidance (use AskUserQuestion)
-3. If success: Log completion and proceed to next phase
-
-### Error Handling
+### 1. Check Current Phase Completion
 
 ```
-if agent returns status: "blocked":
-    - Log the blocker
-    - Ask user: "Phase <N> で問題が発生しました: <blocker>. 続行しますか？"
-    - Wait for user response
-    - Either retry or abort
-
-if agent times out (>30 min):
-    - Check daily log for progress
-    - Ask user whether to continue waiting or abort
+TaskOutput:
+  task_id: <agent_task_id from workflow.json>
+  block: false
 ```
 
-### Completion
+### 2. If Phase Complete
 
-When all phases complete:
-
-1. Log final status:
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh append-daily secretary "全フェーズ完了 ✅"
-   ```
-
-2. Create summary handoff:
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh create-handoff "<branch>" "<summary>"
-   ```
-
-3. Report to user:
-   ```markdown
-   ## ✅ 開発完了: <branch>
-
-   | Phase | Status | Duration |
-   |-------|--------|----------|
-   | Design | ✅ | Xm |
-   | Develop | ✅ | Xm |
-   | Review | ✅ | Xm |
-   | QA | ✅ | Xm |
-
-   ### Summary
-   <implementation_summary>
-
-   ### Files Changed
-   - file1.ts
-   - file2.ts
-
-   ### Next Steps
-   - `/claude-org:merge <branch>` でマージ
-   ```
-
-## Inter-Phase Data Flow
-
-```
-.claude-work/
-├── design/<branch>.md    ← Phase 1 output, Phase 2 input
-├── review/<branch>.md    ← Phase 3 output, Phase 4 input
-├── qa/<branch>.md        ← Phase 4 output
-└── handoff/<branch>.md   ← Final summary
+```bash
+# Update state
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh complete-phase "$CURRENT_PHASE"
 ```
 
-## User Interaction Points
+Report to user:
+```markdown
+✅ **Phase $CURRENT_PHASE ($PHASE_NAME) Complete**
+```
 
-The user only needs to:
-1. Run `/claude-org:dev <task>` initially
-2. Answer questions if a phase encounters blockers
-3. Run `/claude-org:merge <branch>` when complete
+### 3. Start Next Phase (if not phase 4)
 
-No other interaction required.
+Launch next agent with appropriate prompt (see above), then:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh start-phase "$NEXT_PHASE" "<new_agent_task_id>"
+```
+
+Report:
+```markdown
+🔄 **Phase $NEXT_PHASE ($NEXT_PHASE_NAME) Started**
+```
+
+### 4. If All Phases Complete (phase 4 done)
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh complete-workflow
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh create-handoff "$BRANCH" "orchestrator" "$SUMMARY"
+```
+
+Generate final report:
+```markdown
+## ✅ 開発完了: $BRANCH_NAME
+
+**Task ID**: $TASK_ID
+
+| Phase | Status | Duration |
+|-------|--------|----------|
+| Design | ✅ | Xm |
+| Develop | ✅ | Xm |
+| Review | ✅ | Xm |
+| QA | ✅ | Xm |
+| **Total** | | **Xm** |
+
+### Summary
+<brief implementation summary>
+
+### Artifacts
+- Design: .claude-work/design/$BRANCH_NAME.md
+- Review: .claude-work/review/$BRANCH_NAME.md
+- QA: .claude-work/qa/$BRANCH_NAME.md
+
+### Next Steps
+`/claude-org:merge $BRANCH_NAME` でマージ
+```
+
+## Status Check Protocol
+
+When user asks for status or `/claude-org:status`:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/work-manager.sh workflow-summary
+```
+
+Also check if current phase is complete (non-blocking TaskOutput).
+
+## Error Handling
+
+If agent returns `status: "blocked"`:
+
+1. Note the blocker in workflow state
+2. Ask user:
+   ```
+   AskUserQuestion:
+     question: "Phase $N で問題発生: $BLOCKER\n続行しますか？"
+     options:
+       - label: "再試行"
+       - label: "スキップして続行"
+       - label: "中断"
+   ```
+
+## Workflow Commands
+
+```bash
+# Initialize new workflow
+work-manager.sh init-workflow "$TASK_ID" "$BRANCH" "$PLATFORM" "$WORKTREE" "$DESC"
+
+# Get workflow info
+work-manager.sh get-workflow
+work-manager.sh get-workflow-status
+work-manager.sh get-current-phase
+work-manager.sh get-phase-status "$PHASE"
+work-manager.sh get-phase-agent-id "$PHASE"
+work-manager.sh workflow-summary
+
+# Update workflow
+work-manager.sh start-phase "$PHASE" "$AGENT_TASK_ID"
+work-manager.sh complete-phase "$PHASE"
+work-manager.sh complete-workflow
+work-manager.sh clear-workflow
+```
+
+## Key Points
+
+1. **Never block** - Always use `run_in_background: true`
+2. **Return immediately** - After starting a phase, return to user
+3. **Check on interaction** - Hook triggers phase checks on each user message
+4. **State-driven** - All decisions based on `workflow.json`
+5. **Auto-progress** - No manual phase transitions needed

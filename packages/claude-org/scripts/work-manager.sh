@@ -262,6 +262,166 @@ EOF
   echo "$handoff_file"
 }
 
+# ============================================
+# Workflow Management (Async Phase Execution)
+# ============================================
+
+WORKFLOW_FILE="$WORK_DIR/workflow.json"
+
+init_workflow() {
+  local task_id="$1"
+  local branch="$2"
+  local platform="$3"
+  local worktree="$4"
+  local description="$5"
+
+  init
+  acquire_lock
+
+  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  cat > "$WORKFLOW_FILE" << EOF
+{
+  "task_id": "$task_id",
+  "branch": "$branch",
+  "platform": "$platform",
+  "worktree": "$worktree",
+  "description": "$description",
+  "started_at": "$timestamp",
+  "current_phase": 1,
+  "phases": {
+    "1": {"name": "design", "agent": "designer", "status": "pending", "agent_task_id": null},
+    "2": {"name": "develop", "agent": "engineer", "status": "pending", "agent_task_id": null},
+    "3": {"name": "review", "agent": "reviewer", "status": "pending", "agent_task_id": null},
+    "4": {"name": "qa", "agent": "qa", "status": "pending", "agent_task_id": null}
+  },
+  "status": "running"
+}
+EOF
+
+  release_lock
+  echo "$WORKFLOW_FILE"
+}
+
+get_workflow() {
+  if [ -f "$WORKFLOW_FILE" ]; then
+    cat "$WORKFLOW_FILE"
+  else
+    echo "{}"
+  fi
+}
+
+get_workflow_status() {
+  if [ -f "$WORKFLOW_FILE" ]; then
+    jq -r '.status // "none"' "$WORKFLOW_FILE"
+  else
+    echo "none"
+  fi
+}
+
+get_current_phase() {
+  if [ -f "$WORKFLOW_FILE" ]; then
+    jq -r '.current_phase // 0' "$WORKFLOW_FILE"
+  else
+    echo "0"
+  fi
+}
+
+get_phase_status() {
+  local phase="$1"
+  if [ -f "$WORKFLOW_FILE" ]; then
+    jq -r ".phases.\"$phase\".status // \"none\"" "$WORKFLOW_FILE"
+  else
+    echo "none"
+  fi
+}
+
+get_phase_agent_task_id() {
+  local phase="$1"
+  if [ -f "$WORKFLOW_FILE" ]; then
+    jq -r ".phases.\"$phase\".agent_task_id // \"\"" "$WORKFLOW_FILE"
+  else
+    echo ""
+  fi
+}
+
+start_phase() {
+  local phase="$1"
+  local agent_task_id="$2"
+
+  acquire_lock
+
+  local tmp=$(mktemp)
+  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  jq --arg phase "$phase" \
+     --arg agent_task_id "$agent_task_id" \
+     --arg ts "$timestamp" \
+     '.current_phase = ($phase | tonumber) |
+      .phases[$phase].status = "running" |
+      .phases[$phase].agent_task_id = $agent_task_id |
+      .phases[$phase].started_at = $ts' \
+     "$WORKFLOW_FILE" > "$tmp" && mv "$tmp" "$WORKFLOW_FILE"
+
+  release_lock
+}
+
+complete_phase() {
+  local phase="$1"
+
+  acquire_lock
+
+  local tmp=$(mktemp)
+  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local next_phase=$((phase + 1))
+
+  jq --arg phase "$phase" \
+     --arg ts "$timestamp" \
+     --argjson next "$next_phase" \
+     '.phases[$phase].status = "complete" |
+      .phases[$phase].completed_at = $ts |
+      if $next <= 4 then .current_phase = $next else . end' \
+     "$WORKFLOW_FILE" > "$tmp" && mv "$tmp" "$WORKFLOW_FILE"
+
+  release_lock
+}
+
+complete_workflow() {
+  acquire_lock
+
+  local tmp=$(mktemp)
+  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  jq --arg ts "$timestamp" \
+     '.status = "complete" | .completed_at = $ts' \
+     "$WORKFLOW_FILE" > "$tmp" && mv "$tmp" "$WORKFLOW_FILE"
+
+  release_lock
+}
+
+clear_workflow() {
+  rm -f "$WORKFLOW_FILE"
+}
+
+workflow_summary() {
+  if [ ! -f "$WORKFLOW_FILE" ]; then
+    echo "No active workflow"
+    return
+  fi
+
+  jq -r '
+    "Workflow: \(.task_id)\n" +
+    "Branch: \(.branch)\n" +
+    "Status: \(.status)\n" +
+    "Current Phase: \(.current_phase)\n" +
+    "Phases:\n" +
+    "  1. Design: \(.phases."1".status)\n" +
+    "  2. Develop: \(.phases."2".status)\n" +
+    "  3. Review: \(.phases."3".status)\n" +
+    "  4. QA: \(.phases."4".status)"
+  ' "$WORKFLOW_FILE"
+}
+
 case "$1" in
   init) init ;;
   create-worktree) create_worktree "$2" "$3" "$4" ;;
@@ -276,7 +436,26 @@ case "$1" in
   append-daily) append_daily_log "$2" "$3" "$4" ;;
   init-context) init_context "$2" ;;
   create-handoff) create_handoff "$2" "$3" "$4" ;;
+  # Workflow commands
+  init-workflow) init_workflow "$2" "$3" "$4" "$5" "$6" ;;
+  get-workflow) get_workflow ;;
+  get-workflow-status) get_workflow_status ;;
+  get-current-phase) get_current_phase ;;
+  get-phase-status) get_phase_status "$2" ;;
+  get-phase-agent-id) get_phase_agent_task_id "$2" ;;
+  start-phase) start_phase "$2" "$3" ;;
+  complete-phase) complete_phase "$2" ;;
+  complete-workflow) complete_workflow ;;
+  clear-workflow) clear_workflow ;;
+  workflow-summary) workflow_summary ;;
   *)
-    echo "Usage: $0 {init|create-worktree <branch-base> <task-id> [base-branch]|list-worktrees|remove-worktree|add-task|update-status|get-tasks|get-running|remove-task|init-daily <task-id> <agent>|append-daily <task-id> <agent> <content>|init-context|create-handoff}"
+    echo "Usage: $0 <command> [args]"
+    echo "Commands:"
+    echo "  init, create-worktree, list-worktrees, remove-worktree"
+    echo "  add-task, update-status, get-tasks, get-running, remove-task"
+    echo "  init-daily, append-daily, init-context, create-handoff"
+    echo "  init-workflow, get-workflow, get-workflow-status, get-current-phase"
+    echo "  get-phase-status, get-phase-agent-id, start-phase, complete-phase"
+    echo "  complete-workflow, clear-workflow, workflow-summary"
     exit 1 ;;
 esac

@@ -9,6 +9,46 @@
   },
   "plugins": [
     {
+      "name": "claude-environments",
+      "description": "Environment enhancements for vibe coding with Claude Code. Provides audio notifications on response completion and user input prompts.",
+      "version": "0.1.0",
+      "author": {
+        "name": "shabaraba",
+        "email": ""
+      },
+      "source": "./packages/claude-environments",
+      "category": "productivity",
+      "keywords": [
+        "notifications",
+        "audio",
+        "hooks",
+        "vibe-coding",
+        "environment",
+        "ux",
+        "accessibility"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "claude-org",
+      "description": "Star-topology AI organization with async sub-agents, worktree isolation, daily logs, and context handoff. 7 agents, 6 commands, 5 skills (including orchestrator) for automated 4-phase development workflow (design→develop→review→QA).",
+      "version": "0.4.0",
+      "author": {
+        "name": "shabaraba",
+        "email": ""
+      },
+      "source": "./packages/claude-org",
+      "category": "development",
+      "keywords": [
+        "organization",
+        "async",
+        "worktree",
+        "multi-agent",
+        "orchestration"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "dev-org",
       "description": "Comprehensive development organization plugin with AI-driven refactoring workflows. Features parallel analysis (SOLID, complexity, smells, security, duplication), architecture design, implementation, QA, testing, and multi-perspective code review.",
       "version": "0.1.0",
@@ -17,18 +57,14 @@
         "email": ""
       },
       "source": "./packages/dev-org",
-      "category": "development"
-    },
-    {
-      "name": "claude-org",
-      "description": "Star-topology AI organization with async sub-agents, worktree isolation, daily logs, and context handoff. 7 agents, 6 commands, 5 skills for automated 4-phase development workflow (design→develop→review→QA).",
-      "version": "0.1.0",
-      "author": {
-        "name": "shabaraba",
-        "email": ""
-      },
-      "source": "./packages/claude-org",
-      "category": "development"
+      "category": "development",
+      "keywords": [
+        "refactoring",
+        "analysis",
+        "quality",
+        "testing"
+      ],
+      "license": "MIT"
     }
   ]
 }
